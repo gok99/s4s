@@ -1,0 +1,10 @@
+(ocamllex
+ (modules lexer))
+
+(menhir
+ (flags --dump) 	
+ (modules parser))
+
+(library
+ (name source1star)
+ (libraries num menhirLib str))
