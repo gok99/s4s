@@ -1,12 +1,12 @@
 (lang dune 3.16)
 (using menhir 3.0)
 
-(name source1star)
+(name s1s)
 
 (generate_opam_files true)
 
 (source
- (github gok99/source1star))
+ (github gok99/s1s))
 
 (authors "Gokul Rajiv")
 
@@ -15,6 +15,6 @@
 (license LICENSE)
 
 (package
- (name source1star)
+ (name s1s)
  (synopsis "An extension of source1 with effect handlers and type inference")
  (depends ocaml dune))

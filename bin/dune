@@ -1,4 +1,4 @@
 (executable
- (public_name source1star)
+ (public_name s1s)
  (name main)
- (libraries source1star))
+ (libraries s1s))

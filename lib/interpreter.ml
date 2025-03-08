@@ -14,30 +14,32 @@ type value =
 and function_val = {
   params: string list;           (* Parameter names *)
   body: lambda_body;             (* Function body *)
-  closure: environment;          (* Lexical environment *)
+  closure: environment ref;      (* Lexical environment *)
 }
 
 (* Environment for storing variable bindings *)
 and environment = {
-  bindings: (string * value) list;        (* Current scope bindings *)
-  parent: environment option;             (* Parent environment (for closures) *)
+  mutable bindings: ((string * value) list);            (* Current scope bindings *)
+  parent: (environment ref) option;             (* Parent environment (for closures) *)
 }
 
 (* Environment operations *)
+
+(* Global environment *)
 let empty_env = { bindings = []; parent = None }
 
 (* Look up a variable in the environment *)
 let rec lookup_variable name env =
   try
-    List.assoc name env.bindings
+    List.assoc name !env.bindings
   with Not_found ->
-    match env.parent with
+    match !env.parent with
     | Some parent -> lookup_variable name parent
     | None -> failwith ("Unbound variable: " ^ name)
 
 (* Define a new variable in the current environment *)
 let define_variable name value env =
-  { env with bindings = (name, value) :: env.bindings }
+  !env.bindings <- (name, value) :: !env.bindings
 
 (* Extend environment with new bindings (for function calls) *)
 let extend_env params args parent_env =
@@ -45,7 +47,7 @@ let extend_env params args parent_env =
     match params, args with
     | [], [] -> bindings
     | p::ps, a::as_ -> bind ps as_ ((p, a) :: bindings)
-    | _, _ -> failwith "Parameter/argument mismatch"
+    | _, _ -> failwith "(internal) Parameter/argument mismatch"
   in
   { bindings = bind params args []; parent = Some parent_env }
 
@@ -59,8 +61,21 @@ let string_of_value = function
                    else string_of_float n
   | BooleanVal b -> string_of_bool b
   | StringVal s -> "\"" ^ s ^ "\""
-  | FunctionVal _ -> "<function>"
+  | FunctionVal _ -> "<closure>"
   | UndefinedVal -> "undefined"
+
+let pp_environment env =
+  let rec pp_bindings = function
+    | [] -> ""
+    | (name, value) :: rest ->
+        Printf.sprintf "%s = %s\n%s" name (string_of_value value) (pp_bindings rest)
+  in
+  let rec pp_env env =
+    match !env.parent with
+    | Some parent -> pp_env parent ^ " -> " ^ pp_bindings !env.bindings
+    | None -> pp_bindings !env.bindings
+  in
+  pp_env env
 
 (* Evaluation functions *)
 
@@ -83,16 +98,18 @@ let rec eval_expression expr env =
       
   | LogicalExpression (And, e1, e2) ->
       let v1 = eval_expression e1 env in
-      match v1 with
+      begin match v1 with
       | BooleanVal false -> BooleanVal false
       | _ -> eval_expression e2 env
-      
+      end
+
   | LogicalExpression (Or, e1, e2) ->
       let v1 = eval_expression e1 env in
-      match v1 with
+      begin match v1 with
       | BooleanVal true -> BooleanVal true
       | _ -> eval_expression e2 env
-      
+      end
+  
   | FunctionApplication (func_expr, args) ->
       let func_val = eval_expression func_expr env in
       let arg_vals = List.map (fun arg -> eval_expression arg env) args in
@@ -109,10 +126,10 @@ let rec eval_expression expr env =
       | _ -> failwith "Condition must evaluate to a boolean"
 
 (* Apply a function to arguments *)
-and apply_function func args parent_env =
+and apply_function func args _ =
   match func with
   | FunctionVal { params; body; closure } ->
-      let func_env = extend_env params args closure in
+      let func_env = ref (extend_env params args closure) in
       begin match body with
       | ExprBody expr -> eval_expression expr func_env
       | BlockBody block -> 
@@ -150,7 +167,8 @@ and eval_binary_op op v1 v2 =
   | GreaterEqual, StringVal s1, StringVal s2 -> BooleanVal (s1 >= s2)
   | LessEqual, NumberVal n1, NumberVal n2 -> BooleanVal (n1 <= n2)
   | LessEqual, StringVal s1, StringVal s2 -> BooleanVal (s1 <= s2)
-  | _ -> failwith "Type error in binary operation"
+  | _ ->
+      failwith "Type error in binary operation"
 
 (* Evaluate unary operations *)
 and eval_unary_op op v =
@@ -164,13 +182,13 @@ and eval_statement stmt env =
   match stmt with
   | ConstDeclaration (name, expr) ->
       let value = eval_expression expr env in
-      let new_env = define_variable name value env in
-      new_env, UndefinedVal
+      define_variable name value env;
+      env, UndefinedVal
       
   | FunctionDeclaration (name, params, body) ->
       let func_val = FunctionVal { params; body = BlockBody body; closure = env } in
-      let new_env = define_variable name func_val env in
-      new_env, UndefinedVal
+      define_variable name func_val env;
+      env, UndefinedVal
       
   | ReturnStatement expr ->
       let value = eval_expression expr env in
@@ -203,12 +221,11 @@ and eval_statement stmt env =
 
 (* Evaluate a block of statements *)
 and eval_block (Block stmts) env =
-  let block_env = { bindings = []; parent = Some env } in
-  let final_env, final_value = 
+  (* extend env *)
+  let block_env = ref (extend_env [] [] env) in
+  let _, final_value = 
     List.fold_left 
-      (fun (curr_env, _) stmt -> 
-        let new_env, value = eval_statement stmt curr_env in
-        new_env, value)
+      (fun (curr_env, _) stmt -> eval_statement stmt curr_env)
       (block_env, UndefinedVal)
       stmts
   in
@@ -219,8 +236,9 @@ let eval_program (Program stmts) =
   try
     let _, value = 
       List.fold_left 
-        (fun (env, _) stmt -> eval_statement stmt env)
-        (empty_env, UndefinedVal)
+        (fun (env, _) stmt -> 
+          eval_statement stmt env)
+        (ref empty_env, UndefinedVal)
         stmts
     in
     value

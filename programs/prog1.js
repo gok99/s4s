@@ -10,5 +10,6 @@ function factorial(n) {
   else { return n * factorial(n - 1); }
 }
 
-const result = add(x, y);
+const result1 = add(x, y);
 const fact5 = factorial(5);
+fact5;

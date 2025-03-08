@@ -4,8 +4,8 @@ synopsis: "An extension of source1 with effect handlers and type inference"
 maintainer: ["Gokul Rajiv"]
 authors: ["Gokul Rajiv"]
 license: "LICENSE"
-homepage: "https://github.com/gok99/source1star"
-bug-reports: "https://github.com/gok99/source1star/issues"
+homepage: "https://github.com/gok99/s1s"
+bug-reports: "https://github.com/gok99/s1s/issues"
 depends: [
   "ocaml"
   "dune" {>= "3.16"}
@@ -25,4 +25,4 @@ build: [
     "@doc" {with-doc}
   ]
 ]
-dev-repo: "git+https://github.com/gok99/source1star.git"
+dev-repo: "git+https://github.com/gok99/s1s.git"
