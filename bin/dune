@@ -1,4 +1,4 @@
 (executable
- (public_name s1s)
+ (public_name s4s)
  (name main)
- (libraries s1s))
+ (libraries s4s))

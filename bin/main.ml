@@ -1,5 +1,5 @@
 (* Use Parse from lib*)
-open S1s
+open S4s
 
 let () =
   let filename = Sys.argv.(1) in

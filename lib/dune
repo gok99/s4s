@@ -6,5 +6,5 @@
  (modules parser))
 
 (library
- (name s1s)
+ (name s4s)
  (libraries num menhirLib str))
