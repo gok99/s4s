@@ -69,6 +69,10 @@ rule read = parse
   | "return" { RETURN }
   | "if"     { IF }
   | "else"   { ELSE }
+  | "handler" { HANDLER }
+  | "with"   { WITH }
+  | "handle" { HANDLE }
+  | "perform" { PERFORM }
   | identifier as id { IDENTIFIER id }
   | eof      { EOF }
   | _        { raise (SyntaxError ("Unexpected char: " ^ Lexing.lexeme lexbuf)) }

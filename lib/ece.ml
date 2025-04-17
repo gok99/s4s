@@ -102,7 +102,7 @@ let rec lookup_handler effect_name (handlers: handler list) =
 let rec scan_declarations = function
   | BlockStatement (Block stmts) ->
       List.concat (List.map scan_declarations stmts)
-  | LetDeclaration (name, _) | ConstDeclaration (name, _) | FunctionDeclaration (name, _, _) ->
+  | LetDeclaration (name, _) | ConstDeclaration (name, _) | FunctionDeclaration (name, _, _) | HandlerDeclaration (name, _) ->
       [name]
   | _ -> []
 
@@ -119,6 +119,8 @@ let setup_global_environment () =
   let builtins = [
     ("display", Builtin Display);
     ("stringify", Builtin Stringify);
+    ("math_sqrt", Builtin Math_Sqrt);
+    ("math_round", Builtin Math_Round);
     ("is_number", Builtin Is_Number);
     ("is_string", Builtin Is_String);
     ("is_function", Builtin Is_Function);
@@ -132,12 +134,32 @@ let setup_global_environment () =
     ("list", Builtin List);
     ("shift", Builtin Shift);
     ("reset", Builtin Reset);
-    ("perform", Builtin Perform);
   ] in
   let global_frame = ref (Hashtbl.create 20) in
   List.iter (fun (name, value) -> Hashtbl.add !global_frame name value) constants;
   List.iter (fun (name, value) -> Hashtbl.add !global_frame name value) builtins;
   [global_frame]
+
+
+  let pop_until_reset_control_marker config =
+    let rec aux acc c = 
+      match c with
+      | [] -> (List.rev acc, [])
+      | ResetControlMarker :: _ -> (List.rev (ResetControlMarker :: acc), c)
+      | x :: xs -> aux (x :: acc) xs
+    in
+    let (k_c, new_c) = aux [] config.c in
+    (k_c, { config with c = new_c })
+  
+  let pop_until_reset_stash_marker config =
+    let rec aux acc s = 
+      match s with
+      | [] -> (List.rev acc, [])
+      | ResetStashMarker :: _ -> (List.rev (ResetStashMarker :: acc), s)
+      | x :: xs -> aux (x :: acc) xs
+    in
+    let (k_s, new_s) = aux [] config.s in
+    (k_s, { config with s = new_s })
 
 let microcode_expression expr config =
   match expr with
@@ -177,6 +199,19 @@ let microcode_expression expr config =
             (BranchInstr { 
               cons = ExpressionStatement then_expr; 
               alt = ExpressionStatement else_expr }) :: config.c }
+  | PerformExpression (op, args) ->
+      let args = List.map (fun arg -> Expression arg) args
+      |> fun a -> a @ [PerformInstr (op, List.length args)]
+      in
+      { config with
+        c = args @ config.c;
+      }
+  | WithHandler (expr, block) ->
+    {
+      config with
+      c = (Expression expr) :: 
+          (RunWithHandlerInstr block) :: config.c;
+    }
 
 let microcode_statement stmt config =
   match stmt with
@@ -234,31 +269,23 @@ let microcode_statement stmt config =
       { config with
         c = (Expression expr) ::
             (AssignmentInstr name) :: config.c }
+  | HandlerDeclaration (name, ops) -> 
+      let handler = List.map (fun (op_name, params, body) ->
+        let closure = Closure { params; body; env = config.e } in
+        (op_name, closure)) ops 
+      in
+      {
+        config with
+        s = Handler handler :: config.s;
+        c = (AssignmentInstr name) ::
+            PopInstr ::
+            (LitInstr Undefined) :: config.c
+      }
 
 let rec value_of_list xs =
   match xs with
   | [] -> Null
   | x :: xs' -> Pair { fst = x; snd = value_of_list xs' }
-
-let pop_until_reset_control_marker config =
-  let rec aux acc c = 
-    match c with
-    | [] -> (List.rev acc, [])
-    | ResetControlMarker :: _ -> (List.rev acc, c)
-    | x :: xs -> aux (x :: acc) xs
-  in
-  let (k_c, new_c) = aux [] config.c in
-  (k_c, { config with c = new_c })
-
-let pop_until_reset_stash_marker config =
-  let rec aux acc s = 
-    match s with
-    | [] -> (List.rev acc, [])
-    | ResetStashMarker :: _ -> (List.rev acc, s)
-    | x :: xs -> aux (x :: acc) xs
-  in
-  let (k_s, new_s) = aux [] config.s in
-  (k_s, { config with s = new_s })
 
 let microcode_builtin_app bi args new_s config =
   let ret_v = fun v -> { config with s = v :: new_s } in
@@ -270,6 +297,16 @@ let microcode_builtin_app bi args new_s config =
   | Stringify ->
       let v = List.hd args in
       ret_v (String (string_of_value v))
+  | Math_Sqrt ->
+      let v = List.hd args in
+      ret_v (match v with
+        | Number n -> Number (sqrt n)
+        | _ -> raise (RuntimeError ("sqrt expects a number", v)))
+  | Math_Round ->
+      let v = List.hd args in
+      ret_v (match v with
+        | Number n -> Number (Float.round n)
+        | _ -> raise (RuntimeError ("round expects a number", v)))
   | Is_Number ->
       let v = List.hd args in
       ret_v (Boolean (match v with Number _ -> true | _ -> false))
@@ -321,7 +358,6 @@ let microcode_builtin_app bi args new_s config =
       s = (Continuation { stash = k_s; control = k_c; env = new_config.e; push_handler = None }) :: 
           List.hd args :: new_config.s;
     }
-  | Perform -> raise (RuntimeError ("perform not implemented", Undefined))
   | _ -> raise (RuntimeError ("unsupported builtin: " ^ (string_of_builtin bi), Undefined))
 
 let microcode_app arity config =
@@ -441,6 +477,34 @@ let microcode cmd config =
     | [] -> config
     | _ :: hs -> { config with h = hs }
     end
+  | RunWithHandlerInstr block ->
+    let v = List.hd config.s in
+    let handler = match v with
+    | Handler h -> h
+    | _ -> raise (RuntimeError ("expected handler", v))
+    in
+    {
+      config with
+      s = ResetStashMarker :: List.tl config.s;
+      c = (Statement (BlockStatement block)) :: ResetControlMarker :: PopHandlerInstr :: config.c;
+      h = handler :: config.h
+    }
+  | PerformInstr (op, arity) ->
+      let handler = lookup_handler op config.h in
+      let args, rest = take_args arity config.s in
+      let config = { config with s = rest } in
+      begin match handler with
+      | Some (handler_fn, handler, rest_handlers) ->
+          let (k_c, new_config) = pop_until_reset_control_marker config in
+          let (k_s, new_config) = pop_until_reset_stash_marker new_config in
+          let k = Continuation { stash = k_s; control = k_c; env = new_config.e; push_handler = Some handler } in
+          { new_config with
+            s = args @ (k :: handler_fn :: new_config.s);
+            c = (AppInstr (List.length args + 1)) :: new_config.c;
+            h = rest_handlers
+          }
+      | None -> raise (RuntimeError ("unbound effect: " ^ op, Undefined))
+      end
 
 let print_control control =
   Printf.printf "Control: ";
@@ -458,6 +522,16 @@ let print_env env =
     Printf.printf "Frame %d:\n" i;
     Hashtbl.iter (fun k v -> Printf.printf "  %s: %s\n" k (string_of_value v)) !frame
   ) env;
+  Printf.printf "\n"
+
+let print_handler_stack handlers =
+  Printf.printf "Handler Stack:\n";
+  List.iteri (fun i handler ->
+    Printf.printf "Handler %d:\n" i;
+    List.iter (fun (name, _) ->
+      Printf.printf "  %s\n" name
+    ) handler
+  ) handlers;
   Printf.printf "\n"
 
 let eval_program ast = 
@@ -490,11 +564,12 @@ let eval_program ast =
           h = !config.h
         };
         config := microcode current_cmd !config;
-        (* print_stash !config.s; *)
+        (* print_stash !config.s;
+        print_handler_stack !config.h; *)
         (* print_env !config.e; *)
         (* Printf.printf "==========================\n"; *)
         step (count - 1)
     in
-    let v = step 1000 in
+    let v = step 1000000 in
     (Printf.printf "Final value: %s\n" (string_of_value v));
     v

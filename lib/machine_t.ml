@@ -35,6 +35,8 @@ type value =
 and builtin =
   | Display
   | Stringify
+  | Math_Sqrt
+  | Math_Round
   | Is_Number
   | Is_String
   | Is_Function
@@ -85,6 +87,8 @@ and command =
   | MarkInstr
   | ResetControlMarker
   | PopHandlerInstr
+  | RunWithHandlerInstr of block
+  | PerformInstr of string * int
 
 and handler = (string * value) list
 
@@ -96,6 +100,8 @@ and handler_stack = handler list
 let string_of_builtin = function
   | Display -> "display"
   | Stringify -> "stringify"
+  | Math_Sqrt -> "math_sqrt"
+  | Math_Round -> "math_round"
   | Is_Number -> "is_number"
   | Is_String -> "is_string"
   | Is_Function -> "is_function"
@@ -196,4 +202,6 @@ let string_of_command cmd =
   | MarkInstr -> "MarkInstr"
   | ResetControlMarker -> "ResetControlMarker"
   | PopHandlerInstr -> "PopHandlerInstr"
-
+  | RunWithHandlerInstr _ -> "RunWithHandlerInstr"
+  | PerformInstr (name, n) -> "PerformInstr: " ^ name ^ " | " ^
+      (string_of_int n)

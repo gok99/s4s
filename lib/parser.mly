@@ -21,6 +21,7 @@
 %token COMMA SEMICOLON
 %token EQUAL ARROW
 %token CONST LET FUNCTION RETURN IF ELSE
+%token HANDLER WITH HANDLE PERFORM
 %token EOF
 
 (* Precedence and associativity declarations *)
@@ -33,7 +34,8 @@
 %nonassoc LESS GREATER LESS_EQUAL GREATER_EQUAL
 %left PLUS MINUS
 %left TIMES DIVIDE MODULO
-%right NOT             /* Highest precedence */
+%right NOT             
+%nonassoc PERFORM    /* Highest precedence */
 
 (* Starting point *)
 %start <Ast.program> program
@@ -56,8 +58,31 @@ statement:
   | IDENTIFIER EQUAL expression SEMICOLON { AssignmentStatement($1, $3) }
   | RETURN expression SEMICOLON { ReturnStatement($2) }
   | if_statement { $1 }
+  | HANDLER IDENTIFIER LBRACE handler_ops RBRACE { HandlerDeclaration($2, $4) }
   | block { BlockStatement($1) }
   | expression SEMICOLON { ExpressionStatement($1) }
+  ;
+
+handler_ops:
+  | /* empty */ { [] }
+  | handler_op { [$1] }
+  | handler_op handler_ops { $1 :: $2 }
+  ;
+
+handler_op:
+  | IDENTIFIER COLON LPAREN handler_params RPAREN ARROW lambda_body { ($1, $4, $7) }
+  | IDENTIFIER COLON IDENTIFIER ARROW lambda_body { ($1, [$3], $5) }
+  ;
+
+handler_params:
+  | /* empty */ { [] }
+  | IDENTIFIER { [$1] }
+  | IDENTIFIER COMMA handler_params { $1 :: $3 }
+  ;
+
+lambda_body:
+  | expression { ExprBody($1) }
+  | block { BlockBody($1) }
   ;
 
 names:
@@ -96,6 +121,8 @@ expression:
   | MINUS expression %prec NOT { UnaryExpression(Negate, $2) }
   | expression AND expression { LogicalExpression(And, $1, $3) }
   | expression OR expression { LogicalExpression(Or, $1, $3) }
+  | WITH expression HANDLE block { WithHandler($2, $4) }
+  | PERFORM LPAREN IDENTIFIER p_expressions RPAREN { PerformExpression($3, $4) }
   | expression LPAREN expressions RPAREN { FunctionApplication($1, $3) }
   | IDENTIFIER ARROW expression { LambdaExpression([$1], ExprBody($3)) }
   | LPAREN names RPAREN ARROW expression { LambdaExpression($2, ExprBody($5)) }
@@ -103,6 +130,12 @@ expression:
   | LPAREN names RPAREN ARROW block { LambdaExpression($2, BlockBody($5)) }
   | expression QUESTION expression COLON expression { ConditionalExpression($1, $3, $5) }
   | LPAREN expression RPAREN { $2 }
+  ;
+
+p_expressions:
+  | /* empty */ { [] }
+  | COMMA expression { [$2] }
+  | COMMA expression COMMA p_expressions { $2 :: $4 }
   ;
 
 expressions:

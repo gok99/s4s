@@ -73,6 +73,14 @@ let rec string_of_expression = function
         (string_of_expression cond)
         (string_of_expression then_expr)
         (string_of_expression else_expr)
+  | PerformExpression (name, args) ->
+      sprintf "perform %s(%s)"
+        name
+        (String.concat ", " (List.map string_of_expression args))
+  | WithHandler (expr, block) ->
+    sprintf "with %s handle %s"
+      (string_of_expression expr)
+      (string_of_block block)
 
 (* Pretty print blocks *)
 and string_of_block (Block stmts) =
@@ -116,6 +124,13 @@ and string_of_statement = function
       sprintf "let %s = %s;" name (string_of_expression expr)
   | AssignmentStatement (name, expr) ->
       sprintf "%s = %s;" name (string_of_expression expr)
+  | HandlerDeclaration (name, ops) ->
+    let ops_str = String.concat "\n" (List.map (fun (op_name, params, body) ->
+      let lambda_str = (string_of_expression (LambdaExpression (params, body))) in
+      sprintf "  %s : %s" op_name lambda_str
+    ) ops)
+    in
+    sprintf "handler %s {\n%s\n}" name (indent_string 2 ops_str)
 
 (* Pretty print program *)
 let string_of_program (Program stmts) =

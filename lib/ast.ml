@@ -41,6 +41,8 @@ and expression =
   | FunctionApplication of expression * expression list
   | LambdaExpression of string list * lambda_body
   | ConditionalExpression of expression * expression * expression
+  | WithHandler of expression * block
+  | PerformExpression of string * expression list
 
 (* Block *)
 and block = Block of statement list
@@ -59,6 +61,7 @@ and statement =
   | ContinueStatement
   | BlockStatement of block
   | ExpressionStatement of expression
+  | HandlerDeclaration of string * (string * string list * lambda_body) list
 
 (* Program *)
 type program = Program of statement list
