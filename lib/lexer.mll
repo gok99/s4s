@@ -33,8 +33,7 @@ rule read = parse
   | newline  { next_line lexbuf; read lexbuf }
   | "/*"     { comment lexbuf; read lexbuf }
   | "//"     { line_comment lexbuf; read lexbuf }
-  | int      { NUMBER (int_of_string (Lexing.lexeme lexbuf)) }
-  | float    { NUMBER (int_of_string (Lexing.lexeme lexbuf)) } (* Simplified for this example *)
+  | float    { NUMBER (float_of_string (Lexing.lexeme lexbuf)) } (* Simplified for this example *)
   | "true"   { TRUE }
   | "false"  { FALSE }
   | string1  { STRING (Lexing.lexeme lexbuf) }
@@ -65,6 +64,7 @@ rule read = parse
   | "="      { EQUAL }
   | "=>"     { ARROW }
   | "const"  { CONST }
+  | "let"    { LET }
   | "function" { FUNCTION }
   | "return" { RETURN }
   | "if"     { IF }

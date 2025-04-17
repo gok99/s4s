@@ -62,5 +62,5 @@ const eight = add_one(seven);
 const nine = add_one(eight);
 const ten = add_one(nine);
 
-num_of_ch(y(y_fact)(six));
-// num_of_ch(y(y_fib)(ten));
+// num_of_ch(y(y_fact)(six));
+num_of_ch(y(y_fib)(ten));

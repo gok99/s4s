@@ -36,7 +36,7 @@ let string_of_logical_op = function
 
 (* Pretty print expressions *)
 let rec string_of_expression = function
-  | NumberLiteral n -> string_of_int n
+  | NumberLiteral n -> string_of_float n
   | BooleanLiteral b -> string_of_bool b
   | StringLiteral s -> s
   | NameExpression name -> name
@@ -104,6 +104,18 @@ and string_of_statement = function
       string_of_block block
   | ExpressionStatement expr ->
       sprintf "%s;" (string_of_expression expr)
+  | WhileStatement (cond, body) ->
+      sprintf "while (%s) %s"
+        (string_of_expression cond)
+        (string_of_block body)
+  | BreakStatement ->
+      "break;"
+  | ContinueStatement ->
+      "continue;"
+  | LetDeclaration (name, expr) ->
+      sprintf "let %s = %s;" name (string_of_expression expr)
+  | AssignmentStatement (name, expr) ->
+      sprintf "%s = %s;" name (string_of_expression expr)
 
 (* Pretty print program *)
 let string_of_program (Program stmts) =

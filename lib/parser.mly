@@ -6,7 +6,7 @@
 %}
 
 (* Token declarations *)
-%token <int> NUMBER
+%token <float> NUMBER
 %token <string> STRING
 %token <string> IDENTIFIER
 %token TRUE FALSE
@@ -20,10 +20,11 @@
 %token LBRACE RBRACE
 %token COMMA SEMICOLON
 %token EQUAL ARROW
-%token CONST FUNCTION RETURN IF ELSE
+%token CONST LET FUNCTION RETURN IF ELSE
 %token EOF
 
 (* Precedence and associativity declarations *)
+%right ARROW           /* Lowest precedence, right associative */
 %nonassoc QUESTION
 %nonassoc COLON
 %left OR
@@ -32,8 +33,7 @@
 %nonassoc LESS GREATER LESS_EQUAL GREATER_EQUAL
 %left PLUS MINUS
 %left TIMES DIVIDE MODULO
-%right NOT
-%nonassoc ARROW
+%right NOT             /* Highest precedence */
 
 (* Starting point *)
 %start <Ast.program> program
@@ -51,7 +51,9 @@ statements:
 
 statement:
   | CONST IDENTIFIER EQUAL expression SEMICOLON { ConstDeclaration($2, $4) }
+  | LET IDENTIFIER EQUAL expression SEMICOLON { LetDeclaration($2, $4) }
   | FUNCTION IDENTIFIER LPAREN names RPAREN block { FunctionDeclaration($2, $4, $6) }
+  | IDENTIFIER EQUAL expression SEMICOLON { AssignmentStatement($1, $3) }
   | RETURN expression SEMICOLON { ReturnStatement($2) }
   | if_statement { $1 }
   | block { BlockStatement($1) }

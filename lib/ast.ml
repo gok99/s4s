@@ -1,4 +1,4 @@
-(* ast.ml - Abstract Syntax Tree for Source §1 *)
+(* ast.ml - Abstract Syntax Tree for Source §4 + Delimited Control *)
 
 (* Binary operators *)
 type binary_operator =
@@ -31,7 +31,7 @@ type lambda_body =
 
 (* Expressions *)
 and expression =
-  | NumberLiteral of int
+  | NumberLiteral of float
   | BooleanLiteral of bool
   | StringLiteral of string
   | NameExpression of string
@@ -48,13 +48,17 @@ and block = Block of statement list
 (* Statements *)
 and statement =
   | ConstDeclaration of string * expression
+  | LetDeclaration of string * expression
+  | AssignmentStatement of string * expression
   | FunctionDeclaration of string * string list * block
   | ReturnStatement of expression
   | IfStatement of expression * block * block
   | IfElseIfStatement of expression * block * statement
+  | WhileStatement of expression * block
+  | BreakStatement
+  | ContinueStatement
   | BlockStatement of block
   | ExpressionStatement of expression
 
 (* Program *)
 type program = Program of statement list
-
