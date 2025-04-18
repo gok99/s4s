@@ -140,7 +140,6 @@ let setup_global_environment () =
   List.iter (fun (name, value) -> Hashtbl.add !global_frame name value) builtins;
   [global_frame]
 
-
   let pop_until_reset_control_marker config =
     let rec aux acc c = 
       match c with
@@ -201,7 +200,8 @@ let microcode_expression expr config =
               alt = ExpressionStatement else_expr }) :: config.c }
   | PerformExpression (op, args) ->
       let args = List.map (fun arg -> Expression arg) args
-      |> fun a -> a @ [PerformInstr (op, List.length args)]
+      |> fun a -> PerformInstr (op, List.length args) :: a
+      |> List.rev
       in
       { config with
         c = args @ config.c;
@@ -570,6 +570,4 @@ let eval_program ast =
         (* Printf.printf "==========================\n"; *)
         step (count - 1)
     in
-    let v = step 1000000 in
-    (Printf.printf "Final value: %s\n" (string_of_value v));
-    v
+    step 1000000

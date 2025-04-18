@@ -21,7 +21,7 @@
 %token COMMA SEMICOLON
 %token EQUAL ARROW
 %token CONST LET FUNCTION RETURN IF ELSE
-%token HANDLER WITH HANDLE PERFORM
+%token HANDLER WITH HANDLE PERFORM WHILE
 %token EOF
 
 (* Precedence and associativity declarations *)
@@ -56,9 +56,15 @@ statement:
   | LET IDENTIFIER EQUAL expression SEMICOLON { LetDeclaration($2, $4) }
   | FUNCTION IDENTIFIER LPAREN names RPAREN block { FunctionDeclaration($2, $4, $6) }
   | IDENTIFIER EQUAL expression SEMICOLON { AssignmentStatement($1, $3) }
+  | IDENTIFIER PLUS EQUAL expression SEMICOLON { AssignmentStatement($1, BinaryExpression(Plus, NameExpression($1), $4)) }
+  | IDENTIFIER MINUS EQUAL expression SEMICOLON { AssignmentStatement($1, BinaryExpression(Minus, NameExpression($1), $4)) }
+  | IDENTIFIER TIMES EQUAL expression SEMICOLON { AssignmentStatement($1, BinaryExpression(Times, NameExpression($1), $4)) }
+  | IDENTIFIER DIVIDE EQUAL expression SEMICOLON { AssignmentStatement($1, BinaryExpression(Divide, NameExpression($1), $4)) }
+  | IDENTIFIER MODULO EQUAL expression SEMICOLON { AssignmentStatement($1, BinaryExpression(Modulo, NameExpression($1), $4)) }
   | RETURN expression SEMICOLON { ReturnStatement($2) }
   | if_statement { $1 }
   | HANDLER IDENTIFIER LBRACE handler_ops RBRACE { HandlerDeclaration($2, $4) }
+  | WHILE LPAREN expression RPAREN block { WhileStatement($3, $5) }
   | block { BlockStatement($1) }
   | expression SEMICOLON { ExpressionStatement($1) }
   ;
@@ -135,7 +141,7 @@ expression:
 p_expressions:
   | /* empty */ { [] }
   | COMMA expression { [$2] }
-  | COMMA expression COMMA p_expressions { $2 :: $4 }
+  | COMMA expression p_expressions { $2 :: $3 }
   ;
 
 expressions:

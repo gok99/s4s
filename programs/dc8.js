@@ -2,7 +2,7 @@ reset(() => {
     let x = shift(k => (k(1) === 16));
     x = x + 1;
     let y = shift(k => (k(x) * k(x)));
-    y * y;
+    (y * y);
 });
 
 /* 

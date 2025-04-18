@@ -73,6 +73,7 @@ rule read = parse
   | "with"   { WITH }
   | "handle" { HANDLE }
   | "perform" { PERFORM }
+  | "while"  { WHILE }
   | identifier as id { IDENTIFIER id }
   | eof      { EOF }
   | _        { raise (SyntaxError ("Unexpected char: " ^ Lexing.lexeme lexbuf)) }
