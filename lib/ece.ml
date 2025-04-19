@@ -9,7 +9,7 @@ type configuration = {
   c: control;
   s: stash;
   e: environment;
-  hid: int;
+  hid: int64;
 }
 
 (* Exception for runtime errors *)
@@ -525,7 +525,7 @@ let microcode cmd config =
       config with
       s = ResetHandlerStashMarker config.hid :: List.tl config.s;
       c = (Statement (BlockStatement block)) :: ResetHandlerControlMarker (handler, config.hid) :: config.c;
-      hid = config.hid + 1
+      hid = Int64.add config.hid 1L;
     }
   | PerformInstr (op, arity) ->
       let args, stash = take_args arity config.s in
@@ -587,7 +587,7 @@ let eval_program ast =
     c = [initial_block];
     s = [];
     e = setup_global_environment ();
-    hid = 0;
+    hid = 0L;
   } in
 
   let rec step count =

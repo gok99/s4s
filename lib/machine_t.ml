@@ -30,7 +30,7 @@ type value =
     to the program.
   *)
   | ResetStashMarker
-  | ResetHandlerStashMarker of int
+  | ResetHandlerStashMarker of int64
 
 and builtin =
   | Display
@@ -87,7 +87,7 @@ and command =
   | MarkInstr
   | ResetControlMarker
   | RunWithHandlerInstr of block
-  | ResetHandlerControlMarker of handler * int
+  | ResetHandlerControlMarker of handler * int64
   | PerformInstr of string * int
 
 and handler = (string * value) list
@@ -180,7 +180,7 @@ let rec string_of_value = function
       "[" ^ string_of_value fst ^ ", " ^ string_of_value snd ^ "]"
   | Handler _ -> "<handler>"
   | ResetStashMarker -> "<reset_stash_marker>"
-  | ResetHandlerStashMarker id -> "<reset_handler_stash_marker: " ^ string_of_int id ^ ">"
+  | ResetHandlerStashMarker id -> "<reset_handler_stash_marker " ^ (Int64.to_string id) ^ ">"
 
 let string_of_command cmd =
   match cmd with
@@ -205,4 +205,4 @@ let string_of_command cmd =
   | RunWithHandlerInstr _ -> "RunWithHandlerInstr"
   | PerformInstr (name, n) -> "PerformInstr: " ^ name ^ " | " ^
       (string_of_int n)
-  | ResetHandlerControlMarker (_, id) -> "HandlerDelimiter: " ^ (string_of_int id)
+  | ResetHandlerControlMarker (_, id) -> "HandlerDelimiter: " ^ (Int64.to_string id)
