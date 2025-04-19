@@ -2,11 +2,14 @@
 open Ast
 open Machine_t
 
+let use_deep_handler = true
+let use_shift_reset = true
+
 type configuration = {
   c: control;
   s: stash;
   e: environment;
-  h: handler_stack;
+  hid: int;
 }
 
 (* Exception for runtime errors *)
@@ -140,25 +143,67 @@ let setup_global_environment () =
   List.iter (fun (name, value) -> Hashtbl.add !global_frame name value) builtins;
   [global_frame]
 
-  let pop_until_reset_control_marker config =
-    let rec aux acc c = 
-      match c with
-      | [] -> (List.rev acc, [])
-      | ResetControlMarker :: _ -> (List.rev (ResetControlMarker :: acc), c)
-      | x :: xs -> aux (x :: acc) xs
-    in
-    let (k_c, new_c) = aux [] config.c in
-    (k_c, { config with c = new_c })
-  
-  let pop_until_reset_stash_marker config =
-    let rec aux acc s = 
-      match s with
-      | [] -> (List.rev acc, [])
-      | ResetStashMarker :: _ -> (List.rev (ResetStashMarker :: acc), s)
-      | x :: xs -> aux (x :: acc) xs
-    in
-    let (k_s, new_s) = aux [] config.s in
-    (k_s, { config with s = new_s })
+let pop_until_reset_control_marker config =
+  let rec aux acc c = 
+    match c with
+    | [] -> (List.rev acc, [])
+    | ResetControlMarker :: _ -> 
+      let k_c = if use_shift_reset
+        then List.rev (ResetControlMarker :: acc)
+        else List.rev acc
+      in
+      (k_c, c)
+    | x :: xs -> aux (x :: acc) xs
+  in
+  let (k_c, new_c) = aux [] config.c in
+  (k_c, { config with c = new_c })
+
+let pop_until_reset_stash_marker config =
+  let rec aux acc s = 
+    match s with
+    | [] -> (List.rev acc, [])
+    | ResetStashMarker :: _ -> 
+      let k_s = if use_shift_reset
+        then List.rev (ResetStashMarker :: acc)
+        else List.rev acc
+      in
+      (k_s, s)
+    | x :: xs -> aux (x :: acc) xs
+  in
+  let (k_s, new_s) = aux [] config.s in
+  (k_s, { config with s = new_s })
+
+let pop_until_reset_handler_control_marker op control =
+  let rec aux acc c = 
+    match c with
+    | [] -> raise (RuntimeError ("unbound effect: " ^ op, Undefined))
+    | ResetHandlerControlMarker (handler, id) :: xs ->
+        begin match List.assoc_opt op handler with
+        | Some handler_fn -> 
+            let k_c = if use_deep_handler
+              then List.rev (ResetHandlerControlMarker (handler, id) :: acc)
+              else List.rev acc
+            in
+            (handler_fn, id, k_c, xs)
+        | None -> aux (ResetHandlerControlMarker (handler, id) :: acc) xs
+        end
+    | x :: xs -> aux (x :: acc) xs
+  in
+  aux [] control
+
+let pop_until_reset_handler_stash_marker id stash =
+  let rec aux acc s =
+    match s with
+    | [] -> raise (RuntimeError ("unbound effect", Undefined))
+    | ResetHandlerStashMarker id' :: xs when id' = id ->
+        let k_s = if use_shift_reset
+          then List.rev (ResetHandlerStashMarker id' :: acc)
+          else List.rev acc
+        in
+        (k_s, xs)
+    | x :: xs -> aux (x :: acc) xs
+  in
+  aux [] stash
 
 let microcode_expression expr config =
   match expr with
@@ -355,7 +400,7 @@ let microcode_builtin_app bi args new_s config =
     {
       new_config with
       c = (AppInstr 1) :: new_config.c;
-      s = (Continuation { stash = k_s; control = k_c; env = new_config.e; push_handler = None }) :: 
+      s = (Continuation { stash = k_s; control = k_c; env = new_config.e }) :: 
           List.hd args :: new_config.s;
     }
   | _ -> raise (RuntimeError ("unsupported builtin: " ^ (string_of_builtin bi), Undefined))
@@ -397,14 +442,12 @@ let microcode_app arity config =
       s = new_s;
       e = new_env;
     }
-  | Continuation { stash; control; env; push_handler } ->
+  | Continuation { control; stash; env } ->
     {
+      config with
       c = control @ ((EnvInstr config.e) :: config.c);
       s = List.hd args :: stash @ new_s;
       e = env;
-      h = (match push_handler with
-        | Some h -> h :: config.h
-        | None -> config.h);
     }
   | Builtin b -> microcode_builtin_app b args new_s config
   | _ -> raise (RuntimeError ("", Undefined))
@@ -472,11 +515,6 @@ let microcode cmd config =
       }
     | v -> raise (RuntimeError ("encountered unexpected stash value at reset control marker", v))
     end
-  | PopHandlerInstr ->
-    begin match config.h with
-    | [] -> config
-    | _ :: hs -> { config with h = hs }
-    end
   | RunWithHandlerInstr block ->
     let v = List.hd config.s in
     let handler = match v with
@@ -485,30 +523,36 @@ let microcode cmd config =
     in
     {
       config with
-      s = ResetStashMarker :: List.tl config.s;
-      c = (Statement (BlockStatement block)) :: ResetControlMarker :: PopHandlerInstr :: config.c;
-      h = handler :: config.h
+      s = ResetHandlerStashMarker config.hid :: List.tl config.s;
+      c = (Statement (BlockStatement block)) :: ResetHandlerControlMarker (handler, config.hid) :: config.c;
+      hid = config.hid + 1
     }
   | PerformInstr (op, arity) ->
-      let handler = lookup_handler op config.h in
-      let args, rest = take_args arity config.s in
-      let config = { config with s = rest } in
-      begin match handler with
-      | Some (handler_fn, handler, rest_handlers) ->
-          let (k_c, new_config) = pop_until_reset_control_marker config in
-          let (k_s, new_config) = pop_until_reset_stash_marker new_config in
-          let k = Continuation { stash = k_s; control = k_c; env = new_config.e; push_handler = Some handler } in
-          { new_config with
-            s = args @ (k :: handler_fn :: new_config.s);
-            c = (AppInstr (List.length args + 1)) :: new_config.c;
-            h = rest_handlers
-          }
-      | None -> raise (RuntimeError ("unbound effect: " ^ op, Undefined))
-      end
+      let args, stash = take_args arity config.s in
+      let (handler_fn, id, k_c, new_c) = pop_until_reset_handler_control_marker op config.c in
+      let (k_s, new_s) = pop_until_reset_handler_stash_marker id stash in
+      let k = Continuation { stash = k_s; control = k_c; env = config.e } in
+      {
+        config with
+        s = args @ (k :: handler_fn :: new_s);
+        c = (AppInstr (List.length args + 1)) :: new_c;
+      }
+  | ResetHandlerControlMarker (_, id) ->
+    let ret = List.hd config.s in
+    let m = List.hd (List.tl config.s) in
+    let rest = List.tl (List.tl config.s) in
+    begin match m with
+    | ResetHandlerStashMarker id' when id = id' ->
+      {
+        config with
+        s = ret :: rest
+      }
+    | v -> raise (RuntimeError ("encountered unexpected stash value at reset handler control marker", v)) 
+    end
 
 let print_control control =
   Printf.printf "Control: ";
-  List.iter (fun cmd -> Printf.printf "%s " (string_of_command cmd)) control;
+  List.iter (fun cmd -> Printf.printf "(%s) " (string_of_command cmd)) control;
   Printf.printf "\n"
 
 let print_stash stash =
@@ -543,7 +587,7 @@ let eval_program ast =
     c = [initial_block];
     s = [];
     e = setup_global_environment ();
-    h = []
+    hid = 0;
   } in
 
   let rec step count =
@@ -558,14 +602,12 @@ let eval_program ast =
         (* print_control !config.c;
         Printf.printf "Executing: %s\n" (string_of_command current_cmd); *)
         config := {
+          !config with
           c = List.tl !config.c;
-          s = !config.s;
-          e = !config.e;
-          h = !config.h
         };
         config := microcode current_cmd !config;
-        (* print_stash !config.s;
-        print_handler_stack !config.h; *)
+        (* print_stash !config.s; *)
+        (* print_handler_stack !config.h; *)
         (* print_env !config.e; *)
         (* Printf.printf "==========================\n"; *)
         step (count - 1)

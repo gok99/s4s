@@ -22,7 +22,6 @@ type value =
       stash: value list;
       control: command list;
       env: environment;
-      push_handler: handler option
     }
   | Handler of handler
   (* 
@@ -31,6 +30,7 @@ type value =
     to the program.
   *)
   | ResetStashMarker
+  | ResetHandlerStashMarker of int
 
 and builtin =
   | Display
@@ -86,8 +86,8 @@ and command =
   | ResetInstr
   | MarkInstr
   | ResetControlMarker
-  | PopHandlerInstr
   | RunWithHandlerInstr of block
+  | ResetHandlerControlMarker of handler * int
   | PerformInstr of string * int
 
 and handler = (string * value) list
@@ -180,6 +180,7 @@ let rec string_of_value = function
       "[" ^ string_of_value fst ^ ", " ^ string_of_value snd ^ "]"
   | Handler _ -> "<handler>"
   | ResetStashMarker -> "<reset_stash_marker>"
+  | ResetHandlerStashMarker id -> "<reset_handler_stash_marker: " ^ string_of_int id ^ ">"
 
 let string_of_command cmd =
   match cmd with
@@ -201,7 +202,7 @@ let string_of_command cmd =
   | ResetInstr -> "ResetInstr"
   | MarkInstr -> "MarkInstr"
   | ResetControlMarker -> "ResetControlMarker"
-  | PopHandlerInstr -> "PopHandlerInstr"
   | RunWithHandlerInstr _ -> "RunWithHandlerInstr"
   | PerformInstr (name, n) -> "PerformInstr: " ^ name ^ " | " ^
       (string_of_int n)
+  | ResetHandlerControlMarker (_, id) -> "HandlerDelimiter: " ^ (string_of_int id)
