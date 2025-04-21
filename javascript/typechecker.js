@@ -727,7 +727,7 @@ const find_answer_type = (program, te) => {
             for (const stmt of comp.stmts) {
                 const at = type_answer(stmt, te, ate)
 
-                if (at !== "fun") {
+                if (stmt.tag !== "fun") {
                     answer_types.push(at)
                 }
             }
@@ -785,106 +785,106 @@ const test = (program, expected_type_or_error) => {
 }
 
 
-// test(`
-//   f2 = (number > number) > number;
-//   function f2(k) {
-//     return k(1) + k(2);
-//   }
+test(`
+  f2 = (number > number) > number;
+  function f2(k) {
+    return k(1) + k(2);
+  }
   
-//   f = null > number;
-//   function f() {
-//     return shift(f2);
-//   }
+  f = null > number;
+  function f() {
+    return shift(f2);
+  }
 
-//   reset(f);
-// `, "number")
+  reset(f);
+`, "number")
 
-// test(`
-//   f = (number > number) > number;
-//   function f(k) {
-//       return k(1) + 1;
-//   }
+test(`
+  f = (number > number) > number;
+  function f(k) {
+      return k(1) + 1;
+  }
   
-//   1 + shift(f);    
-// `, "number")
+  1 + shift(f);    
+`, "number")
 
-// test(`
-//   nested_shift = (number > bool) > bool;
-//   function nested_shift(k) {
-//     return k(1);
-//   }
+test(`
+  nested_shift = (number > bool) > bool;
+  function nested_shift(k) {
+    return k(1);
+  }
 
-//   nested_reset = null > bool;
-//   function nested_reset() {
-//     return shift(nested_shift) === 1;
-//   }
+  nested_reset = null > bool;
+  function nested_reset() {
+    return shift(nested_shift) === 1;
+  }
 
-//   outer_shift = (number > number) > number;
-//   function outer_shift(k) {
-//     a = bool;
-//     const a = reset(nested_reset);
-//     return a ? 10 : 20;
-//   }
+  outer_shift = (number > number) > number;
+  function outer_shift(k) {
+    a = bool;
+    const a = reset(nested_reset);
+    return a ? 10 : 20;
+  }
   
-//   outer_reset = null > number;
-//   function outer_reset() {
-//     return shift(outer_shift);
-//   }
+  outer_reset = null > number;
+  function outer_reset() {
+    return shift(outer_shift);
+  }
 
-//   reset(outer_reset);
-// `, "number")
+  reset(outer_reset);
+`, "number")
 
-// test(`
-//   to_shift = (number > number) > bool;
-//   function to_shift(k) {
-//     return k(1) === k(2);
-//   }
+test(`
+  to_shift = (number > number) > bool;
+  function to_shift(k) {
+    return k(1) === k(2);
+  }
 
-//   to_reset = null > number;
-//   function to_reset() {
-//     return shift(to_shift);
-//   }
+  to_reset = null > number;
+  function to_reset() {
+    return shift(to_shift);
+  }
 
-//   reset(to_reset); 
-// `, 'number')
+  reset(to_reset); 
+`, 'number')
 
-// test(`
-//     to_shift1 = (number > number) > number;
-//     function to_shift1(k) {
-//       return k(1);
-//     }
+test(`
+    to_shift1 = (number > number) > number;
+    function to_shift1(k) {
+      return k(1);
+    }
     
-//     to_shift2 = (number > number) > number;
-//     function to_shift2(k) {
-//       return k(2);
-//     }
+    to_shift2 = (number > number) > number;
+    function to_shift2(k) {
+      return k(2);
+    }
   
-//     to_reset = null > number;
-//     function to_reset() {
-//       return 1 + shift(to_shift1) + shift(to_shift2);
-//     }
+    to_reset = null > number;
+    function to_reset() {
+      return 1 + shift(to_shift1) + shift(to_shift2);
+    }
   
-//     reset(to_reset);    
-// `, 'number')
+    reset(to_reset);    
+`, 'number')
 
-// test(`
-//   to_shift1 = (number > number) > bool;
-//   function to_shift1(k) {
-//     return k(1) === k(2);
-//   }
+test(`
+  to_shift1 = (number > number) > bool;
+  function to_shift1(k) {
+    return k(1) === k(2);
+  }
   
-//   to_shift2 = (number > number) > number;
-//   function to_shift2(k) {
-//     return 1 + shift(to_shift1);
-//   }
+  to_shift2 = (number > number) > number;
+  function to_shift2(k) {
+    return 1 + shift(to_shift1);
+  }
 
-//   to_reset = null > number;
-//   function to_reset() {
-//     return 1 + shift(to_shift2);
-//   }
+  to_reset = null > number;
+  function to_reset() {
+    return 1 + shift(to_shift2);
+  }
 
-//   reset(to_reset);    
-// `, 'number')
+  reset(to_reset);    
+`, 'number')
 
 test(`
   t = (number > bool) > bool;
