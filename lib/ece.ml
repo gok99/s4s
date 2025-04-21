@@ -612,4 +612,4 @@ let eval_program ast =
         (* Printf.printf "==========================\n"; *)
         step (count - 1)
     in
-    step 1000000
+    step 10000000
