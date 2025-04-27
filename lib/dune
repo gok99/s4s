@@ -1,9 +1,9 @@
 (ocamllex
- (modules lexer))
+ (modules lexer lexer_typed))
 
 (menhir
  (flags --dump) 	
- (modules parser))
+ (modules parser parser_typed))
 
 (library
  (name s4s)

@@ -1,0 +1,9 @@
+reset(() => {
+    const f1 = n :: Number => shift(k :: (Number) -> Boolean => true);
+    const f2 = (f :: (Number) -> Number) => { 
+        f(1);
+        return 1;
+    };
+    
+    return shift(k :: (Number) -> Number => 1) + f2(f1);
+});

@@ -70,3 +70,13 @@ let parse_source_file filename =
   with
   | Parser.Error -> failwith @@ Printf.sprintf "Parse error at: %s"
       (string_of_range (lex_range lexbuf))
+
+let parse_typed_source_file filename =
+  let lexbuf = read_file filename |> 
+               Lexing.from_string
+  in
+  try
+    Parser_typed.program Lexer_typed.read lexbuf
+  with
+  | Parser_typed.Error -> failwith @@ Printf.sprintf "Parse error at: %s"
+      (string_of_range (lex_range lexbuf))

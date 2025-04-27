@@ -1,0 +1,6 @@
+function f (k :: (Number) -> Number) :: Number {
+    const a = reset(() => shift((k :: (Number) -> Boolean) => k(1)) === 1);
+    return (a ? 10 : 20);
+}
+
+reset(() => shift(f));

@@ -1,0 +1,13 @@
+const x = 10;
+const y = 20;
+
+function add(a :: (Number, Delta), b :: (Number, Delta)) :: Number {
+  return a + b;
+}
+
+function factorial(n :: (Number, Delta)) :: Number {
+  return n === 0 ? 1 : (n * factorial(n - 1));
+}
+
+const result1 = add(x, y);
+factorial(5);

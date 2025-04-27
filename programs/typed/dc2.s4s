@@ -1,0 +1,1 @@
+reset(() => shift((k :: (Number) -> Number) => k(1) + k(2)));
