@@ -481,7 +481,7 @@ let microcode cmd config =
   | WhileInstr { pred; body } ->
       let v = List.hd config.s in
       let new_c = if v = Boolean true 
-        then Statement body :: PopInstr :: (Expression pred) :: config.c
+        then Statement body :: PopInstr :: (Expression pred) :: cmd :: config.c
         else config.c
       in
       { config with 

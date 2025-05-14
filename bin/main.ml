@@ -2,8 +2,14 @@
 open S4s
 
 let () =
-  let use_typed = Sys.argv.(1) = "typed" in
-  let filename = Sys.argv.(2) in
+  let use_typed, filename =
+    match Array.to_list Sys.argv with
+    | _::use_typed::filename::_ ->
+      let use_typed = String.lowercase_ascii use_typed in
+      if use_typed = "typed" then (true, filename) else (false, filename)
+    | _::filename::_ -> (false, filename)
+    | _ -> failwith "Usage: dune exec bin/main.exe [typed] <filename>"
+  in
   let ast = if use_typed 
   then
     let t_ast = Parse.parse_typed_source_file filename in
